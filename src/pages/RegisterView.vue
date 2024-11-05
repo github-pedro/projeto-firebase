@@ -8,6 +8,7 @@
     >
       <v-card max-width="500">
         <v-card-text>
+          <v-icon class="mb-4" color="#F6820D" size="x-large">mdi-firebase</v-icon>
           <div align="center" class="text-h3 mb-5">Bem-vindo</div>
           <div align="center" class="text-h6 mb-5">Para começar crie sua conta.</div>
           <v-form ref="form">
