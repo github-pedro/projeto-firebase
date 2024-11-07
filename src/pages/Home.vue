@@ -25,8 +25,8 @@
             <AppDataTable
               :headers="header"
               :hide="false"
-              :items="alimentos"
-              :total-elements="alimentos.length"
+              :items="state.alimentos"
+              :total-elements="state.alimentos.length"
             >
               <template #[`item.index`]="{ item, index }">
                 {{ index +1 }}
@@ -57,7 +57,7 @@
                 sm="6"
               >
                 <v-autocomplete
-                  v-model="model.familia"
+                  v-model="state.model.familia"
                   item-title="familia"
                   item-value="familia"
                   :items="familiaAlimentos"
@@ -72,7 +72,7 @@
                 sm="6"
               >
                 <v-autocomplete
-                  v-model="model.tipo"
+                  v-model="state.model.tipo"
                   item-title="tipo"
                   item-value="tipo"
                   :items="tipoAlimentos"
@@ -84,11 +84,28 @@
               </v-col>
               <v-col
                 cols="12"
+                sm="6"
               >
                 <v-text-field
+                  v-model="state.model.descricao"
                   label="Descrição"
                   required
                   :rules="[(texto: string) => required(texto) || 'Campo obrigatório']"
+                  variant="outlined"
+                />
+              </v-col>
+              <v-col
+                cols="12"
+                sm="6"
+              >
+                <v-text-field
+                  v-model.number="state.model.quantidade"
+                  label="Quantidade"
+                  maxlength="5"
+                  minlength="5"
+                  required
+                  :rules="[(texto: string) => required(texto) || 'Campo obrigatório']"
+                  type="number"
                   variant="outlined"
                 />
               </v-col>
@@ -120,13 +137,15 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import AppDataTable from '@/components/AppDataTable/AppDataTable.vue'
-  import { collection, getDocs, getFirestore } from 'firebase/firestore'
+  import { addDoc, collection, getDocs, getFirestore } from 'firebase/firestore'
   import { getAuth, signOut } from 'firebase/auth'
   import { useRouter } from 'vue-router'
-  import { onMounted, ref } from 'vue'
+  import { onMounted, reactive, ref } from 'vue'
   import { required } from '@/validation/rules'
+  import { Alimento } from '@/models/AlimentosModel'
+  import { notify } from '@kyvg/vue3-notification'
 
   const header = ref([
     {
@@ -138,14 +157,23 @@
     { title: 'Família', key: 'familia', sortable: false, align: 'start' },
     { title: 'Tipo', key: 'tipo', sortable: false, align: 'start' },
     { title: 'Descrição', key: 'descricao', align: 'center', sortable: false, width: '200px' },
+    { title: 'Quantidade', key: 'quantidade', sortable: false, align: 'center' },
     { title: 'Ações', key: 'acoes', align: 'center', sortable: false, width: '200px' },
   ])
   const dialog = ref(false)
-  const alimentos = ref([])
-  const familiaAlimentos = ref([])
-  const tipoAlimentos = ref([])
+  const familiaAlimentos = ref([] as {familia:string}[])
+  const tipoAlimentos = ref([] as {tipo:string}[])
 
-  const model = ref({})
+  interface State {
+    model: Alimento
+    alimentos: Alimento[]
+  }
+
+  const state = reactive<State>({
+    model: {} as Alimento,
+    alimentos: [] as Alimento[],
+  })
+
   const form = ref()
 
   const db = getFirestore()
@@ -153,35 +181,64 @@
   const auth = getAuth()
 
   onMounted(async () => {
+    init()
+  })
+
+  const init = () => {
     getAlimentos()
     getFamilia()
     getTipoAlimento()
-  })
+  }
 
   const validForm = async () => {
     const result = await form.value.validate()
     if (await result.valid) {
-      salvar()
+      addAlimento()
     }
   }
 
   const getAlimentos = async () => {
+    state.alimentos = [] as Alimento[]
     const getAlimentos = await getDocs(collection(db, 'alimentos'))
     getAlimentos.forEach(doc => {
-      alimentos.value.push({ ...doc.data(), id: doc.id })
+      state.alimentos.push({ ...doc.data(), id: doc.id })
     })
   }
   const getFamilia = async () => {
+    familiaAlimentos.value = [] as {familia:string}[]
     const getAlimentos = await getDocs(collection(db, 'familiaAlimentos'))
     getAlimentos.forEach(doc => {
       familiaAlimentos.value.push({ ...doc.data(), id: doc.id })
     })
   }
   const getTipoAlimento = async () => {
+    tipoAlimentos.value = [] as {tipo:string}[]
     const getAlimentos = await getDocs(collection(db, 'tiposAlimentos'))
     getAlimentos.forEach(doc => {
       tipoAlimentos.value.push({ ...doc.data(), id: doc.id })
     })
+  }
+
+  const addAlimento = async () => {
+    await addDoc(collection(db, 'alimentos'), state.model)
+      .then(resp => {
+        notify({
+          title: 'Sucesso!',
+          text: 'Cadastro realizado com sucesso.',
+          type: 'success',
+        })
+        init()
+        dialog.value = false
+        state.model = {} as Alimento
+      })
+      .catch(error => {
+        console.log(error)
+        notify({
+          title: 'Erro!',
+          text: 'Falha ao tentar cadastrar.',
+          type: 'error',
+        })
+      })
   }
 
   const logout = async () => {
