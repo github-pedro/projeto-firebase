@@ -31,9 +31,15 @@
               <template #[`item.index`]="{ item, index }">
                 {{ index +1 }}
               </template>
-              <template #[`item.acoes`]="{ }">
-                <v-btn class="mr-2" color="#5E6679" icon="mdi-pencil" size="30" />
-                <v-btn color="#5E6679" icon="mdi-trash-can" size="30" />
+              <template #[`item.acoes`]="{ item }">
+                <v-btn
+                  class="mr-2"
+                  color="#5E6679"
+                  icon="mdi-pencil"
+                  size="30"
+                  @click="getAlimentosId(item.id)"
+                />
+                <v-btn color="#5E6679" icon="mdi-trash-can" size="30" @click="deleteAlimento(item.id)" />
 
               </template>
             </AppDataTable>
@@ -139,7 +145,7 @@
 
 <script setup lang="ts">
   import AppDataTable from '@/components/AppDataTable/AppDataTable.vue'
-  import { addDoc, collection, getDocs, getFirestore } from 'firebase/firestore'
+  import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, getFirestore, updateDoc } from 'firebase/firestore'
   import { getAuth, signOut } from 'firebase/auth'
   import { useRouter } from 'vue-router'
   import { onMounted, reactive, ref } from 'vue'
@@ -193,7 +199,11 @@
   const validForm = async () => {
     const result = await form.value.validate()
     if (await result.valid) {
-      addAlimento()
+      if (!state.model.id) {
+        addAlimento()
+      } else {
+        updateAlimento()
+      }
     }
   }
 
@@ -239,6 +249,54 @@
           type: 'error',
         })
       })
+  }
+
+  const updateAlimento = async () => {
+    await updateDoc(doc(db, 'alimentos', state.model.id), state.model)
+      .then(resp => {
+        notify({
+          title: 'Sucesso!',
+          text: 'Edição realizada com sucesso.',
+          type: 'success',
+        })
+        init()
+        dialog.value = false
+        state.model = {} as Alimento
+      })
+      .catch(error => {
+        console.log(error)
+        notify({
+          title: 'Erro!',
+          text: 'Falha ao tentar editar.',
+          type: 'error',
+        })
+      })
+  }
+
+  const deleteAlimento = async (id: string) => {
+    await deleteDoc(doc(db, 'alimentos', id))
+      .then(resp => {
+        notify({
+          title: 'Sucesso!',
+          text: 'Exclusão realizada com sucesso.',
+          type: 'success',
+        })
+        init()
+      })
+      .catch(error => {
+        console.log(error)
+        notify({
+          title: 'Erro!',
+          text: 'Falha ao tentar excluir.',
+          type: 'error',
+        })
+      })
+  }
+
+  const getAlimentosId = async (id: string) => {
+    const getAlimentos = await getDoc(doc(db, 'alimentos', id))
+    state.model = { id: getAlimentos.id, ...getAlimentos.data() }
+    dialog.value = true
   }
 
   const logout = async () => {
